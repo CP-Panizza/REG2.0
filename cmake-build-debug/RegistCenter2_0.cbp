@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CodeBlocks_project_file>
+	<FileVersion major="1" minor="6"/>
+	<Project>
+		<Option title="RegistCenter2_0"/>
+		<Option makefile_is_custom="1"/>
+		<Option compiler="gcc"/>
+		<Option virtualFolders="CMake Files\;"/>
+		<Build>
+			<Target title="all">
+				<Option working_dir="C:/Users/Administrator/Desktop/RegistCenter2.0/cmake-build-debug"/>
+				<Option type="4"/>
+				<MakeCommands>
+					<Build command="D:/MinGW64/bin/mingw32-make.exe -f &quot;C:/Users/Administrator/Desktop/RegistCenter2.0/cmake-build-debug/Makefile&quot;  VERBOSE=1 all"/>
+					<CompileFile command="D:/MinGW64/bin/mingw32-make.exe -f &quot;C:/Users/Administrator/Desktop/RegistCenter2.0/cmake-build-debug/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="D:/MinGW64/bin/mingw32-make.exe -f &quot;C:/Users/Administrator/Desktop/RegistCenter2.0/cmake-build-debug/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="D:/MinGW64/bin/mingw32-make.exe -f &quot;C:/Users/Administrator/Desktop/RegistCenter2.0/cmake-build-debug/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="RegistCenter2_0">
+				<Option output="C:/Users/Administrator/Desktop/RegistCenter2.0/cmake-build-debug/RegistCenter2_0.exe" prefix_auto="0" extension_auto="0"/>
+				<Option working_dir="C:/Users/Administrator/Desktop/RegistCenter2.0/cmake-build-debug"/>
+				<Option object_output="./"/>
+				<Option type="1"/>
+				<Option compiler="gcc"/>
+				<Compiler>
+					<Add directory="D:/MinGW64/bin/../lib/gcc/x86_64-w64-mingw32/4.9.2/include"/>
+					<Add directory="D:/MinGW64/bin/../lib/gcc/x86_64-w64-mingw32/4.9.2/include-fixed"/>
+					<Add directory="D:/MinGW64/bin/../lib/gcc/x86_64-w64-mingw32/4.9.2/../../../../x86_64-w64-mingw32/include"/>
+					<Add directory="D:/MinGW64/lib/gcc/../../x86_64-w64-mingw32/include/c++"/>
+					<Add directory="D:/MinGW64/lib/gcc/../../x86_64-w64-mingw32/include/c++/x86_64-w64-mingw32"/>
+					<Add directory="D:/MinGW64/lib/gcc/../../x86_64-w64-mingw32/include/c++/backward"/>
+				</Compiler>
+				<MakeCommands>
+					<Build command="D:/MinGW64/bin/mingw32-make.exe -f &quot;C:/Users/Administrator/Desktop/RegistCenter2.0/cmake-build-debug/Makefile&quot;  VERBOSE=1 RegistCenter2_0"/>
+					<CompileFile command="D:/MinGW64/bin/mingw32-make.exe -f &quot;C:/Users/Administrator/Desktop/RegistCenter2.0/cmake-build-debug/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="D:/MinGW64/bin/mingw32-make.exe -f &quot;C:/Users/Administrator/Desktop/RegistCenter2.0/cmake-build-debug/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="D:/MinGW64/bin/mingw32-make.exe -f &quot;C:/Users/Administrator/Desktop/RegistCenter2.0/cmake-build-debug/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="RegistCenter2_0/fast">
+				<Option output="C:/Users/Administrator/Desktop/RegistCenter2.0/cmake-build-debug/RegistCenter2_0.exe" prefix_auto="0" extension_auto="0"/>
+				<Option working_dir="C:/Users/Administrator/Desktop/RegistCenter2.0/cmake-build-debug"/>
+				<Option object_output="./"/>
+				<Option type="1"/>
+				<Option compiler="gcc"/>
+				<Compiler>
+					<Add directory="D:/MinGW64/bin/../lib/gcc/x86_64-w64-mingw32/4.9.2/include"/>
+					<Add directory="D:/MinGW64/bin/../lib/gcc/x86_64-w64-mingw32/4.9.2/include-fixed"/>
+					<Add directory="D:/MinGW64/bin/../lib/gcc/x86_64-w64-mingw32/4.9.2/../../../../x86_64-w64-mingw32/include"/>
+					<Add directory="D:/MinGW64/lib/gcc/../../x86_64-w64-mingw32/include/c++"/>
+					<Add directory="D:/MinGW64/lib/gcc/../../x86_64-w64-mingw32/include/c++/x86_64-w64-mingw32"/>
+					<Add directory="D:/MinGW64/lib/gcc/../../x86_64-w64-mingw32/include/c++/backward"/>
+				</Compiler>
+				<MakeCommands>
+					<Build command="D:/MinGW64/bin/mingw32-make.exe -f &quot;C:/Users/Administrator/Desktop/RegistCenter2.0/cmake-build-debug/Makefile&quot;  VERBOSE=1 RegistCenter2_0/fast"/>
+					<CompileFile command="D:/MinGW64/bin/mingw32-make.exe -f &quot;C:/Users/Administrator/Desktop/RegistCenter2.0/cmake-build-debug/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="D:/MinGW64/bin/mingw32-make.exe -f &quot;C:/Users/Administrator/Desktop/RegistCenter2.0/cmake-build-debug/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="D:/MinGW64/bin/mingw32-make.exe -f &quot;C:/Users/Administrator/Desktop/RegistCenter2.0/cmake-build-debug/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="edit_cache">
+				<Option working_dir="C:/Users/Administrator/Desktop/RegistCenter2.0/cmake-build-debug"/>
+				<Option type="4"/>
+				<MakeCommands>
+					<Build command="D:/MinGW64/bin/mingw32-make.exe -f &quot;C:/Users/Administrator/Desktop/RegistCenter2.0/cmake-build-debug/Makefile&quot;  VERBOSE=1 edit_cache"/>
+					<CompileFile command="D:/MinGW64/bin/mingw32-make.exe -f &quot;C:/Users/Administrator/Desktop/RegistCenter2.0/cmake-build-debug/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="D:/MinGW64/bin/mingw32-make.exe -f &quot;C:/Users/Administrator/Desktop/RegistCenter2.0/cmake-build-debug/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="D:/MinGW64/bin/mingw32-make.exe -f &quot;C:/Users/Administrator/Desktop/RegistCenter2.0/cmake-build-debug/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="rebuild_cache">
+				<Option working_dir="C:/Users/Administrator/Desktop/RegistCenter2.0/cmake-build-debug"/>
+				<Option type="4"/>
+				<MakeCommands>
+					<Build command="D:/MinGW64/bin/mingw32-make.exe -f &quot;C:/Users/Administrator/Desktop/RegistCenter2.0/cmake-build-debug/Makefile&quot;  VERBOSE=1 rebuild_cache"/>
+					<CompileFile command="D:/MinGW64/bin/mingw32-make.exe -f &quot;C:/Users/Administrator/Desktop/RegistCenter2.0/cmake-build-debug/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="D:/MinGW64/bin/mingw32-make.exe -f &quot;C:/Users/Administrator/Desktop/RegistCenter2.0/cmake-build-debug/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="D:/MinGW64/bin/mingw32-make.exe -f &quot;C:/Users/Administrator/Desktop/RegistCenter2.0/cmake-build-debug/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+		</Build>
+		<Unit filename="C:/Users/Administrator/Desktop/RegistCenter2.0/RWLock.hpp">
+			<Option target="RegistCenter2_0"/>
+		</Unit>
+		<Unit filename="C:/Users/Administrator/Desktop/RegistCenter2.0/Service.cpp">
+			<Option target="RegistCenter2_0"/>
+		</Unit>
+		<Unit filename="C:/Users/Administrator/Desktop/RegistCenter2.0/Service.h">
+			<Option target="RegistCenter2_0"/>
+		</Unit>
+		<Unit filename="C:/Users/Administrator/Desktop/RegistCenter2.0/main.cpp">
+			<Option target="RegistCenter2_0"/>
+		</Unit>
+		<Unit filename="C:/Users/Administrator/Desktop/RegistCenter2.0/socket_header.h">
+			<Option target="RegistCenter2_0"/>
+		</Unit>
+		<Unit filename="C:/Users/Administrator/Desktop/RegistCenter2.0/util.cpp">
+			<Option target="RegistCenter2_0"/>
+		</Unit>
+		<Unit filename="C:/Users/Administrator/Desktop/RegistCenter2.0/util.h">
+			<Option target="RegistCenter2_0"/>
+		</Unit>
+		<Unit filename="C:/Users/Administrator/Desktop/RegistCenter2.0/CMakeLists.txt">
+			<Option virtualFolder="CMake Files\"/>
+		</Unit>
+	</Project>
+</CodeBlocks_project_file>
