@@ -199,7 +199,7 @@ public:
         FD_ZERO(&fds._read_fd);
     }
 
-    void LoadEventMap(SOCKET fd, CallBack call_back) {
+    void LoadEventMap(SOCKET fd, Event::CallBack call_back) {
 
         Event *accepter = &this->events[cut_index--];
 
