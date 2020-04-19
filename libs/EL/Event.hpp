@@ -82,7 +82,7 @@ public:
         this->src_fd = _src_fd;
     }
 
-    void Set(SOCKET _fd, SelectEvent _event, std::_Bind_helper<0, void (Service::*)(Event *), Service *, std::_Placeholder<1> &>::type _callback) {
+    void Set(SOCKET _fd, SelectEvent _event, CallBack _callback) {
         this->fd = _fd;
         this->events = _event;
         this->callBack = _callback;

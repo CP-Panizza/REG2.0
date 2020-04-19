@@ -7,6 +7,7 @@
 #include <cstring>
 #include <vector>
 
+
 #define pvoid void *
 
 class EventManger;
@@ -49,8 +50,7 @@ private:
     std::list<EventInfo *> events;
     std::list<EventInfo *> fired;
 public:
-    void On(std::string name, std::_Bind_helper<0, void (Service::*)(EventManger *,
-                                                                     std::vector<void *, std::allocator<void *>>), Service *, std::_Placeholder<1> &, std::_Placeholder<2> &>::type callback){
+    void On(std::string name, std::function<void(EventManger *, std::vector<pvoid>)> callback){
         for(auto e : events){
             if(e->name == name){
                 e->callback = callback;

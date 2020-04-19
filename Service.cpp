@@ -322,7 +322,6 @@ void Service::collect_slave(SOCKET fd, std::string remoteIp, std::string name) {
 
 void Service::InitEL() {
     el = new EventLoop;
-
     el->InitEvents();
     el->InitEventManger();
     el->InitTimeEventManeger();
