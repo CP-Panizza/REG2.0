@@ -89,6 +89,18 @@
 		<Unit filename="C:/Users/Administrator/Desktop/RegistCenter2.0/Service.h">
 			<Option target="RegistCenter2_0"/>
 		</Unit>
+		<Unit filename="C:/Users/Administrator/Desktop/RegistCenter2.0/libs/EL/CusEvent.hpp">
+			<Option target="RegistCenter2_0"/>
+		</Unit>
+		<Unit filename="C:/Users/Administrator/Desktop/RegistCenter2.0/libs/EL/Event.hpp">
+			<Option target="RegistCenter2_0"/>
+		</Unit>
+		<Unit filename="C:/Users/Administrator/Desktop/RegistCenter2.0/libs/EL/EventLoop.hpp">
+			<Option target="RegistCenter2_0"/>
+		</Unit>
+		<Unit filename="C:/Users/Administrator/Desktop/RegistCenter2.0/libs/EL/TimeEvent.hpp">
+			<Option target="RegistCenter2_0"/>
+		</Unit>
 		<Unit filename="C:/Users/Administrator/Desktop/RegistCenter2.0/main.cpp">
 			<Option target="RegistCenter2_0"/>
 		</Unit>

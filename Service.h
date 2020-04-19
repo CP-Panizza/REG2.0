@@ -11,7 +11,7 @@
 #include <map>
 #include <list>
 #include <atomic>
-
+#include "libs/EL/EventLoop.hpp"
 
 #define MAXLINE 4096
 #define SERVICE_IP 8527
@@ -65,17 +65,14 @@ struct SlaverInfo {
 
 class Service {
 public:
-    Service(u_short port);
+    Service();
+
+    void InitService();
+
+    void InitEL();
 
     void ConfigAndRun(Config *);
 
-    void run();
-
-    void do_accept();
-
-    void heartCheckService();
-
-    void heartCheckEntry();
 
     void removeServerInfoByIp(std::string ip);
 
@@ -83,13 +80,18 @@ public:
 
     char *initSlaveRequestData(int *len);
 
-    void proceHeartCheck();
+    void proceHeartCheck(TimeEvent *event);
 
     void connect_to_master();
 
-#ifdef _WIN64
+    void handle(Event *ev);
 
-    void handle(SOCKET fd, std::string ip);
+    void OnServiceREG(EventManger *eventManger, std::vector<pvoid> args);
+
+    void OnClientPULL(EventManger *eventManger, std::vector<pvoid> args);
+
+    void SendData(EventManger *eventManger, std::vector<pvoid> args);
+#ifdef _WIN64
 
     void disconnect(SOCKET cfd);
 
@@ -98,7 +100,6 @@ public:
     void collect_slave(SOCKET fd, std::string remoteIp, std::string name);
 
 #else
-    void handle(int fd, std::string ip);
     void disconnect(int cfd);
     void collect_server(int fd, std::string remoteIp);
 #endif
@@ -111,16 +112,15 @@ private:
     std::list<struct ServiceClientInfo> service_client; //服务提供者信息
     std::list<SlaverInfo> slavers;
     Config *config;
+
+    EventLoop *el;
+
 #ifdef _WIN64
 
     SOCKET socket_fd;
-    fd_set select_fd;
-    std::map<SOCKET, std::string> clients;  //保存所有类型请求的socket_fd和远端tcp地址
     SOCKET master_fd;
 #else
     int socket_fd;
-    struct epoll_event *epoll_events;
-    int epoll_fd;
     std::map<int, std::string> clients;
 #endif
 };

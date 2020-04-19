@@ -15,107 +15,8 @@
 std::atomic<bool> runnning(true);
 
 
-Service::Service(u_short port) {
-#ifdef _WIN64
+Service::Service() {
 
-    CreateSocket(&this->socket_fd, &this->select_fd, port);
-
-#else
-
-
-#endif
-}
-
-void Service::run() {
-    printf("======waiting for client's request======\n");
-#ifdef _WIN64
-    int ret;
-    fd_set temp_fd;
-    struct timeval t = {5, 0};
-    while (runnning) {
-        FD_ZERO(&temp_fd);
-        temp_fd = select_fd;
-        ret = select(socket_fd + 1, &temp_fd, NULL, NULL, &t);//最后一个参数为NULL，一直等待，直到有数据过来,客户端断开也会触发读/写状态，然后判断recv返回值是否为0，为0这说明客户端断开连接
-        if (ret == SOCKET_ERROR) {
-            printf("[ERROR]>> select err!");
-            exit(-1);
-        }
-
-        for (int i = 0; i < temp_fd.fd_count; ++i) {
-            //获取到套接字
-            SOCKET s = temp_fd.fd_array[i];
-            if (FD_ISSET(s, &temp_fd)) {
-                //接收到客户端的链接
-                if (s == socket_fd) {
-                    do_accept();
-                } else {
-                    try {
-                        handle(s, clients[s]);
-                    } catch (const std::string err) {
-                        std::cout << err << std::endl;
-                        disconnect(s);
-                    } catch (...) {
-                        std::cout << "[ERROR]>> handle err!" << std::endl;
-                        disconnect(s);
-                    }
-                }
-            }
-        }
-
-
-    }
-
-
-#else
-    int ret;
-    while (runnning) {
-        ret = epoll_wait(epoll_fd, epoll_events, MAX_COUNT, -1);
-        if (ret <= 0) {
-            continue;
-        } else {
-            for (int i = 0; i < ret; i++) {
-                if (epoll_events[i].data.fd == socket_fd) {
-                    do_accept();
-                } else {
-                    handle(epoll_events[i].data.fd, clients[epoll_events[i].data.fd]);
-                }
-            }
-        }
-    }
-#endif
-}
-
-void Service::do_accept() {
-#ifdef _WIN64
-    struct sockaddr_in addrClient;
-    socklen_t len = sizeof(struct sockaddr_in);
-    SOCKET c = accept(socket_fd, (struct sockaddr *) &addrClient, &len);
-    if (c == INVALID_SOCKET) {
-        std::cout << "[ERROR]>> accept err!" << std::endl;
-        return;
-    }
-    clients[c] = inet_ntoa(addrClient.sin_addr);
-    FD_SET(c, &select_fd);
-
-#else
-    struct sockaddr_in cli;
-    socklen_t len = sizeof(cli);
-    int new_fd = accept(socket_fd, (struct sockaddr *) &cli, &len);
-    if (new_fd == -1) {
-        perror("accept err");
-        return;
-    }
-
-    struct epoll_event ev;
-    ev.events = EPOLLIN;
-    ev.data.fd = new_fd;
-    int ret = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, new_fd, &ev);
-    if (ret == -1) {
-        perror("epoll_ctl err");
-        return;
-    }
-    clients[new_fd] = inet_ntoa(cli.sin_addr);
-#endif
 }
 
 
@@ -123,169 +24,62 @@ void Service::do_accept() {
  * recv data:[4][...]
  * 前四个字节保存数据长度，之后的为json数据
  */
-void Service::handle(SOCKET connfd, std::string remoteIp) {
-    char buff[MAXLINE] = {0};
-    std::string respmsg;
-    int resplen = 0;
-    int n = recv(connfd, buff, MAXLINE, 0);
-    buff[n] = '\0';
-    if(n <= 0 && errno != EINTR){
-        throw std::string("[ERROR]>> socket closed");
-    }
-    int content_len = 0;
-    if (n > 4) {
-        content_len = byteCharToInt(buff);
-    }
 
-    char *p = buff + 4;
+void Service::handle(Event *ev) {
+    int n = recv(ev->fd, ev->buff, sizeof(ev->buff), 0);
+    if (n > 0) {
+        ev->len = n;
+        ev->buff[n] = '\0';
+        printf("recv: %s\n", ev->buff + 4);
+        int content_len = 0;
 
-    if (static_cast<int>(strlen(p)) != content_len) {
-        throw std::string("[ERROR]>> recv data length not match");
-    }
-
-    printf("[DEBUG]>> recv msg from client: %s\n", buff);
-    rapidjson::Document doc;
-    if (doc.Parse(p).HasParseError()) {
-        respmsg = "Data err!";
-    } else if (doc.HasMember("Type")
-               && doc["Type"].GetString() == "service"
-               && doc.HasMember("Op")
-               && std::string(doc["Op"].GetString()) == "REG"
-               && doc.HasMember("ServiceList")
-               && doc.HasMember("ServicePort")
-               && doc.HasMember("Proportion")
-               && (this->config->node_type == NodeType::Single || this->config->node_type == NodeType::Master)) {
-        std::string port_str(doc["ServicePort"].GetString());
-        remoteIp.append(port_str);
-        int proportion = doc["Proportion"].GetInt();
-        const rapidjson::Value &serverList = doc["ServiceList"];
-        for (int i = 0; i < serverList.Size(); ++i) {
-            std::string serName(serverList[i].GetString());
-            lock.lockWrite();
-            if (server_list_map.count(serName)) {
-                std::list<ServerInfo *> *temp = server_list_map[serName];
-                temp->push_front(new ServerInfo(remoteIp, proportion));
-            } else {
-                auto *templist = new std::list<ServerInfo *>;
-                templist->push_front(new ServerInfo(remoteIp, proportion));
-                server_list_map[serName] = templist;
-            }
-            lock.unlockWrite();
+        if (n > 4) {
+            content_len = byteCharToInt(ev->buff);
         }
-        collect_server(connfd, remoteIp); //把服务提供方描述符放入一个列表
-        respmsg = "OK";
-        resplen = respmsg.length();
-    } else if (
-            doc.HasMember("Op")
-            && std::string(doc["Op"].GetString()) == "PULL"
-            && doc.HasMember("ServiceList")
-            && doc.HasMember("Type")
-            && doc["Type"].GetString() == "client"
-            ) {
-        rapidjson::StringBuffer s;
-        rapidjson::Writer<rapidjson::StringBuffer> w(s);
 
-        std::map<std::string, std::list<ServerInfo *> *> temp_map;
-        auto serviceList = doc["ServiceList"].GetArray();
+        char *p = ev->buff + 4;
+        if (static_cast<int>(strlen(p)) != content_len) {
+            std::cout << "[ERROR]>> recv data length not match" << std::endl;
+            closesocket(ev->fd);
+            ev->ClearBuffer();
+            ev->Del();
+            return;
+        }
 
-        for (auto it = serviceList.Begin(); it != serviceList.End(); it++) {
-            std::string ser_name(it->GetString());
-            lock.lockRead();
-            if (server_list_map.count(ser_name)) {
-                temp_map[ser_name] = server_list_map[ser_name];
-            } else {
-                std::list<ServerInfo *> tmep_list;
-                temp_map[ser_name] = &tmep_list;
-            }
-            lock.unlockRead();
+        rapidjson::Document *doc = new rapidjson::Document;
+        if (doc->Parse(p).HasParseError()) {
+            std::cout << "[ERROR]>> parse data err" << std::endl;
+            closesocket(ev->fd);
+            ev->ClearBuffer();
+            ev->Del();
+            delete (doc);
+            return;
+        } else if (doc->HasMember("Type")
+                   && std::string(((*doc)["Type"]).GetString()) == "service"
+                   && doc->HasMember("Op")
+                   && std::string((*doc)["Op"].GetString()) == "REG"
+                   && doc->HasMember("ServiceList")
+                   && doc->HasMember("ServicePort")
+                   && doc->HasMember("Proportion")
+                   && (this->config->node_type == NodeType::Single || this->config->node_type == NodeType::Master)) {
+            this->el->customEventManger->Emit("ServiceREG", {ev, doc});
+        } else if (
+                doc->HasMember("Op")
+                && std::string(((*doc)["Op"]).GetString()) == "PULL"
+                && doc->HasMember("ServiceList")
+                && doc->HasMember("Type")
+                && std::string(((*doc)["Type"]).GetString()) == "client"
+                ) {
+            this->el->customEventManger->Emit("ClientPULL", {ev, doc});
         }
-        w.StartObject();
-        w.Key("data");
-        w.StartArray();
-        for (auto key_val : temp_map) {
-            w.StartObject();
-            w.Key(key_val.first.c_str());
-            w.StartArray();
-            for (auto &ip : *key_val.second) {
-                w.StartObject();
-                w.Key("Ip");
-                w.String(ip->ip.c_str());
-                w.Key("Proportion");
-                w.Int(ip->proportion);
-                w.EndObject();
-            }
-            w.EndArray();
-            w.EndObject();
-        }
-        w.EndArray();
-        w.EndObject();
-        respmsg = s.GetString();
-        resplen = respmsg.length();
-    } else if (
-            doc.HasMember("Op")
-            && std::string(doc["Op"].GetString()) == "PULL"
-            && doc.HasMember("Type")
-            && doc["Type"].GetString() == "slave"
-            && doc.HasMember("NodeName")
-            ) {
-        //把当前slave加入列表
-        collect_slave(connfd, remoteIp, std::string(doc["NodeName"].GetString()));
-        rapidjson::StringBuffer s;
-        rapidjson::Writer<rapidjson::StringBuffer> w(s);
-        w.StartObject();
-        w.Key("Op");
-        w.String("ADD");
-        w.Key("Data");
-        w.StartObject();
-        lock.lockRead();
-        for (auto x : server_list_map) {
-            w.Key(x.first.c_str());
-            w.StartArray();
-            for (auto y : *x.second) {
-                w.StartObject();
-                w.Key("Ip");
-                w.String(y->ip.c_str());
-                w.Key("Proportion");
-                w.Int(y->proportion);
-                w.EndObject();
-            }
-            w.EndArray();
-        }
-        lock.unlockRead();
-        w.EndObject();
-        w.Key("Slaves");
-        w.StartArray();
-        for(auto slave : slavers){
-            w.StartObject();
-            w.Key("Ip");
-            w.String(slave.ip.c_str());
-            w.Key("Name");
-            w.String(slave.name.c_str());
-            w.Key("ConnectTime");
-            w.Int64(slave.connect_time);
-            w.EndObject();
-        }
-        w.EndArray();
-        w.EndObject();
-        resplen = 4 + s.GetLength();
-        char data[resplen];
-        char *head = to4ByteChar(s.GetLength());
-        delete[] head;
-        memcpy(data, head, 4);
-        memcpy(data + 4, s.GetString(), s.GetLength());
-        respmsg = std::string(data);
-    }
 
-    if (send(static_cast<SOCKET>(connfd), respmsg.c_str(), resplen, 0) < 0) {
-        std::string fmt("[ERROR]>> send msg error: %s(errno: %d)\n");
-        char targetString[1024];
-        int len = snprintf(targetString,
-                           sizeof(targetString),
-                           fmt.c_str(),
-                           strerror(errno),
-                           errno);
-        targetString[len] = '\0';
-        throw std::string(targetString);
+    } else if ((n < 0) && (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)) {
+        ev->Set(ev->fd, SelectEvent::Read, std::bind(&Service::handle, this, std::placeholders::_1));
+    } else if (n == 0 || n == -1) {
+        std::cout << "[Notify]>> clinet: " << ev->fd << " closed" << std::endl;
+        closesocket(ev->fd);
+        ev->ClearBuffer();
+        ev->Del();
     }
 }
 
@@ -293,12 +87,11 @@ void Service::handle(SOCKET connfd, std::string remoteIp) {
 #ifdef _WIN64
 
 void Service::disconnect(SOCKET cfd) {
-    clients.erase(cfd);
-    slavers.remove_if([&](SlaverInfo n){
-        return n.fd == cfd;
-    });
-    FD_CLR(cfd, &select_fd);
-    closesocket(cfd);
+//    slavers.remove_if([&](SlaverInfo n){
+//        return n.fd == cfd;
+//    });
+//    FD_CLR(cfd, &select_fd);
+//    closesocket(cfd);
 }
 
 #else
@@ -320,14 +113,10 @@ void Service::disconnect(int cfd) {
 #ifdef _WIN64
 
 void Service::collect_server(SOCKET fd, std::string remoteIp) {
-    this->clients.erase(fd);
     struct ServiceClientInfo info(fd, std::move(remoteIp));
-    lock.lockWrite();
     if (!count(this->service_client, info)) {
         this->service_client.push_back(info);
-        FD_CLR(fd, &select_fd);
     }
-    lock.unlockWrite();
 }
 
 #else
@@ -351,16 +140,29 @@ void Service::collect_server(int fd, std::string remoteIp) {
 void Service::ConfigAndRun(Config *_config) {
     this->config = _config;
     if (this->config->node_type == NodeType::Master) {
-        this->heartCheckService();
+        this->el->timeEventManeger->LoadTimeEventMap(
+                std::bind(&Service::proceHeartCheck, this, std::placeholders::_1),
+                nullptr,
+                TimeEvemtType::CERCLE,
+                {},
+                this->config->heart_check_time * 1000
+        );
     } else if (this->config->node_type == NodeType::Slave) {
-        if (this->config->master_ip.empty()) {
-            std::cout << "[ERROR]>> node_type is Slave, must config master_ip" << std::endl;
-            exit(-1);
-        }
-        std::thread t(&Service::slaveRun, this);
-        t.detach();
+//        if (this->config->master_ip.empty()) {
+//            std::cout << "[ERROR]>> node_type is Slave, must config master_ip" << std::endl;
+//            exit(-1);
+//        }
+//        std::thread t(&Service::slaveRun, this);
+//        t.detach();
     }
-    this->run();
+    this->el->LoadEventMap(this->socket_fd, std::bind(&Service::handle, this, std::placeholders::_1));
+    this->el->customEventManger->On("ServiceREG", std::bind(&Service::OnServiceREG, this, std::placeholders::_1,
+                                                            std::placeholders::_2));
+    this->el->customEventManger->On("ClientPULL", std::bind(&Service::OnClientPULL, this, std::placeholders::_1,
+                                                            std::placeholders::_2));
+    this->el->customEventManger->On("SendData",
+                                    std::bind(&Service::SendData, this, std::placeholders::_1, std::placeholders::_2));
+    this->el->Run();
 }
 
 
@@ -375,7 +177,7 @@ void Service::slaveRun() {
     fd_set fd;
     int ret;
     FD_ZERO(&fd);
-    FD_SET(0,&fd);
+    FD_SET(0, &fd);
     if (send(master_fd, reqData, len, 0) < 0) {
         std::cout << "[ERROR]>> slave send data err!" << std::endl;
         WSACleanup();
@@ -383,17 +185,17 @@ void Service::slaveRun() {
     }
 
     while (runnning) {
-        FD_SET(0,&fd);
-        FD_SET(master_fd,&fd);
-        ret = select(master_fd+1, &fd, nullptr, nullptr, nullptr);
+        FD_SET(0, &fd);
+        FD_SET(master_fd, &fd);
+        ret = select(master_fd + 1, &fd, nullptr, nullptr, nullptr);
         if (ret == -1) {
             printf("[ERROR]>> select err!");
             exit(-1);
         }
-        if(FD_ISSET(master_fd, &fd)){
+        if (FD_ISSET(master_fd, &fd)) {
             int n = recv(master_fd, buff, MAXLINE, 0);
-            if(n <= 0 && errno != EINTR){
-                std::cout <<"[ERROR]>> socket closed" << std::endl;
+            if (n <= 0 && errno != EINTR) {
+                std::cout << "[ERROR]>> socket closed" << std::endl;
                 closesocket(master_fd);
 
                 break;
@@ -413,19 +215,6 @@ void Service::slaveRun() {
 
             }
         }
-    }
-}
-
-
-void Service::heartCheckService() {
-    std::thread t(&Service::heartCheckEntry, this);
-    t.detach();
-}
-
-
-void Service::heartCheckEntry() {
-    while (runnning) {
-        proceHeartCheck();
     }
 }
 
@@ -464,14 +253,12 @@ char *Service::initSlaveRequestData(int *len) {
     return temp;
 }
 
-void Service::proceHeartCheck() {
+
+void Service::proceHeartCheck(TimeEvent *event) {
     const char *check_data = "HEART CHECK";
     char recvline[100];
-    clock_t start, end;
-    double duration;
     std::list<ServiceClientInfo> err_client;
-    start = clock();
-    lock.lockWrite();
+
     if (!service_client.empty()) {
         for (auto item : service_client) {
             if ((send(item.fd, check_data, static_cast<int>(strlen(check_data)), 0)) < 0) {
@@ -492,17 +279,6 @@ void Service::proceHeartCheck() {
             });
         }
     }
-    lock.unlockWrite();
-    end = clock();
-    duration = (double) (end - start) / CLOCKS_PER_SEC;
-    auto sub_t = duration - this->config->heart_check_time;
-    int64_t t;
-    if (sub_t <= 0) {
-        t = static_cast<int64_t>(this->config->heart_check_time + sub_t);
-    } else {
-        t = this->config->heart_check_time;
-    }
-    std::this_thread::sleep_for(std::chrono::seconds(t));
 }
 
 void Service::connect_to_master() {
@@ -527,10 +303,143 @@ void Service::connect_to_master() {
     }
 }
 
+
 void Service::collect_slave(SOCKET fd, std::string remoteIp, std::string name) {
-    this->clients.erase(fd);
     this->slavers.push_back(SlaverInfo{static_cast<int>(fd), std::move(name), remoteIp, getTimeStamp()});
-    FD_CLR(fd, &select_fd);
+}
+
+
+void Service::InitEL() {
+    el = new EventLoop;
+
+    el->InitEvents();
+    el->InitEventManger();
+    el->InitTimeEventManeger();
+
+#ifndef _WIN64
+    el->CreateEpoll();
+#else
+    el->InitFDS();
+#endif
+}
+
+
+void Service::InitService() {
+    this->socket_fd = CreateSocket(SERVICE_IP);
+}
+
+
+void Service::OnServiceREG(EventManger *eventManger, std::vector<pvoid> args) {
+    Event *e = (Event *) args[0];
+    rapidjson::Document *doc = (rapidjson::Document *) args[1];
+    std::string port_str((*doc)["ServicePort"].GetString());
+    std::string remoteIp = GetRemoTeIp(e->fd);
+    remoteIp.append(port_str);
+    int proportion = (*doc)["Proportion"].GetInt();
+    const rapidjson::Value &serverList = (*doc)["ServiceList"];
+    for (int i = 0; i < serverList.Size(); ++i) {
+        std::string serName(serverList[i].GetString());
+        if (server_list_map.count(serName)) {
+            std::list<ServerInfo *> *temp = server_list_map[serName];
+            temp->push_front(new ServerInfo(remoteIp, proportion));
+        } else {
+            auto *templist = new std::list<ServerInfo *>;
+            templist->push_front(new ServerInfo(remoteIp, proportion));
+            server_list_map[serName] = templist;
+        }
+    }
+    collect_server(e->fd, remoteIp); //把服务提供方描述符放入一个列表
+    e->ClearBuffer();
+    strcpy(e->buff, "OK");
+    e->len = 2;
+    eventManger->Emit("SendData", {e});
+    delete (doc);
+}
+
+//发送数据处理函数
+void Service::SendData(EventManger *eventManger, std::vector<pvoid> args) {
+    auto ev = (Event *) args[0];
+
+    int ret = -1;
+    int Total = 0;
+    int lenSend = 0;
+    struct timeval tv{};
+    tv.tv_sec = 3;
+    tv.tv_usec = 500;
+    fd_set wset;
+    while (true) {
+        FD_ZERO(&wset);
+        FD_SET(ev->fd, &wset);
+        if (select(0, nullptr, &wset, nullptr, &tv) > 0)//3.5秒之内可以send，即socket可以写入
+        {
+            lenSend = send(ev->fd, ev->buff + Total, ev->len - Total, 0);
+            if (lenSend == -1) {
+                ev->ClearBuffer();
+                closesocket(ev->fd);
+                ev->Del();
+                return;
+            }
+            Total += lenSend;
+            if (Total == ev->len) {
+                ev->ClearBuffer();
+                return;
+            }
+        } else  //3.5秒之内socket还是不可以写入，认为发送失败
+        {
+            ev->ClearBuffer();
+            closesocket(ev->fd);
+            ev->Del();
+            return;
+        }
+    }
+
+}
+
+void Service::OnClientPULL(EventManger *eventManger, std::vector<pvoid> args) {
+    Event *e = (Event *) args[0];
+    rapidjson::Document *doc = (rapidjson::Document *) args[1];
+
+    rapidjson::StringBuffer s;
+    rapidjson::Writer<rapidjson::StringBuffer> w(s);
+
+    std::map<std::string, std::list<ServerInfo *> *> temp_map;
+    auto serviceList = ((*doc)["ServiceList"]).GetArray();
+
+    for (auto it = serviceList.Begin(); it != serviceList.End(); it++) {
+        std::string ser_name(it->GetString());
+        lock.lockRead();
+        if (server_list_map.count(ser_name)) {
+            temp_map[ser_name] = server_list_map[ser_name];
+        } else {
+            std::list<ServerInfo *> tmep_list;
+            temp_map[ser_name] = &tmep_list;
+        }
+        lock.unlockRead();
+    }
+    w.StartObject();
+    w.Key("data");
+    w.StartArray();
+    for (auto key_val : temp_map) {
+        w.StartObject();
+        w.Key(key_val.first.c_str());
+        w.StartArray();
+        for (auto &ip : *key_val.second) {
+            w.StartObject();
+            w.Key("Ip");
+            w.String(ip->ip.c_str());
+            w.Key("Proportion");
+            w.Int(ip->proportion);
+            w.EndObject();
+        }
+        w.EndArray();
+        w.EndObject();
+    }
+    w.EndArray();
+    w.EndObject();
+    strcpy(e->buff, s.GetString());
+    e->len = s.GetLength();
+    eventManger->Emit("SendData", {e});
+    delete(doc);
 }
 
 

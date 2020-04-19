@@ -14,4 +14,9 @@ add_executable(RegistCenter2_0
         Service.h
         util.cpp
         util.h
-        RWLock.hpp)
+        RWLock.hpp
+        libs/EL/CusEvent.hpp
+        libs/EL/Event.hpp
+        libs/EL/EventLoop.hpp
+        libs/EL/TimeEvent.hpp
+        )

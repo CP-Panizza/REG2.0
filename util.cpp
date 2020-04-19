@@ -3,12 +3,37 @@
 //
 
 #include "util.h"
+#include "libs/EL/EventLoop.hpp"
 #include <dirent.h>
 #include <sys/stat.h>
 #include <fstream>
 #include <iostream>
 #include <map>
 #include <time.h>
+
+
+#ifdef _WIN64
+
+int setnonblocking(SOCKET s) {
+    unsigned long ul = 1;
+    int ret = ioctlsocket(s, FIONBIO, &ul);//设置成非阻塞模式。
+    if (ret == SOCKET_ERROR)//设置失败。
+    {
+        return -1;
+    }
+    return 1;
+}
+
+#else
+
+int setnonblocking(int fd) {
+    int old_option = fcntl(fd, F_GETFL);
+    int new_option = old_option | O_NONBLOCK;
+    fcntl(fd, F_SETFL, new_option);
+    return old_option;
+}
+
+#endif
 
 std::vector<std::string> split(std::string str, std::string pattern) {
     std::string::size_type pos;
@@ -126,11 +151,25 @@ unsigned int byteCharToInt(const char *data){
 
 
 
+std::string GetRemoTeIp(SOCKET fd) {
+    char ipAddr[INET_ADDRSTRLEN];
+    struct sockaddr_in peerAddr;
+    int peerLen = sizeof(peerAddr);
+    if (getpeername(fd, (struct sockaddr *) &peerAddr, &peerLen) == -1) {
+        printf("getpeername error\n");
+        exit(0);
+    }
+    printf("connected peer address = %s:%d\n", inet_ntoa(peerAddr.sin_addr),
+           ntohs(peerAddr.sin_port));
+    return std::string(inet_ntoa(peerAddr.sin_addr));
+}
+
 
 
 #ifdef _WIN64
 
-void CreateSocket(SOCKET *socket_fd, fd_set *select_fd, u_short port) {
+
+SOCKET CreateSocket(uint16_t port) {
     WORD dwVersion = MAKEWORD(2, 2);
     WSAData wsaData{};
     WSAStartup(dwVersion, &wsaData);
@@ -139,69 +178,72 @@ void CreateSocket(SOCKET *socket_fd, fd_set *select_fd, u_short port) {
     servaddr.sin_family = AF_INET; //网络类型
     servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
     servaddr.sin_port = htons(port); //端口
-
-    if ((*socket_fd = socket(AF_INET, SOCK_STREAM, 0)) == INVALID_SOCKET) {
+    SOCKET new_socket;
+    if ((new_socket = socket(AF_INET, SOCK_STREAM, 0)) == INVALID_SOCKET) {
         printf("[ERROR]>> create socket error: %s(errno: %d)\n", strerror(errno), errno);
         WSACleanup();
         exit(-1);
     }
 
     bool bReAddr = true;
-    if (SOCKET_ERROR == (setsockopt(*socket_fd, SOL_SOCKET, SO_REUSEADDR, (char *) &bReAddr, sizeof(bReAddr)))) {
+    if (SOCKET_ERROR == (setsockopt(new_socket, SOL_SOCKET, SO_REUSEADDR, (char *) &bReAddr, sizeof(bReAddr)))) {
         std::cout << "[ERROR]>> set resueaddr socket err!" << std::endl;
         WSACleanup();
         exit(-1);
     }
 
-    if (bind(*socket_fd, (struct sockaddr *) &servaddr, sizeof(servaddr)) == INVALID_SOCKET) {
+    if (bind(new_socket, (struct sockaddr *) &servaddr, sizeof(servaddr)) == INVALID_SOCKET) {
         printf("[ERROR]>> bind socket error: %s(errno: %d)\n", strerror(errno), errno);
         WSACleanup();
         exit(-1);
     }
 
     //监听，设置最大连接数10
-    if (listen(*socket_fd, 10) == INVALID_SOCKET) {
+    if (listen(new_socket, 10) == INVALID_SOCKET) {
         printf("[ERROR]>> listen socket error: %s(errno: %d)\n", strerror(errno), errno);
         WSACleanup();
         exit(-1);
     }
-    FD_ZERO(select_fd);
-    FD_SET(*socket_fd, select_fd);
+
+    if (setnonblocking(new_socket) == -1) {
+        printf("[ERROR]>> set socket_fd nnonblock err");
+        exit(-1);
+    }
+    return new_socket;
 }
 
 
 #else
 
-void CreateSocket(int *socket_fd, int *epoll_fd, struct epoll_event *epoll_events, u_short port){
-    struct sockaddr_in servaddr;
-    memset(&servaddr, 0, sizeof(servaddr));
-    servaddr.sin_family = AF_INET; //网络类型
-    servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
-    servaddr.sin_port = htons(port); //端口
+int CreateSocket(uint16_t port) {
+    int new_socket = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
+    if (new_socket < 0) {
+        std::cout << "[ERROR]>> create socket err!" << std::endl;
+        exit(-1);
+    }
+    int reuse = 1;
+    setsockopt(new_socket, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
+    struct sockaddr_in addr;
+    bzero(&addr, sizeof addr);
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(port);
+    addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    int ret = bind(new_socket, (struct sockaddr *) &addr, sizeof(addr));
 
-    if ((*socket_fd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
-        printf("create socket error: %s(errno: %d)\n", strerror(errno), errno);
+    if (ret < 0) {
+        std::cout << "[ERROR]>> bind error" << std::endl;
         exit(-1);
     }
 
-    if (bind(*socket_fd, (struct sockaddr *) &servaddr, sizeof(servaddr)) == -1) {
-        printf("bind socket error: %s(errno: %d)\n", strerror(errno), errno);
+    ret = listen(new_socket, 16);
+
+    if (ret < 0) {
+        std::cout << "[ERROR]>> listen error" << std::endl;
         exit(-1);
     }
 
-    //监听，设置最大连接数10
-    if (listen(*socket_fd, 10) == -1) {
-        printf("listen socket error: %s(errno: %d)\n", strerror(errno), errno);
-        exit(-1);
-    }
-
-    epoll_events = new struct epoll_event[MAX_COUNT];
-
-    *epoll_fd = epoll_create(MAX_COUNT);
-    struct epoll_event ev;
-    ev.data.fd = *socket_fd;
-    ev.events = EPOLLIN;
-    epoll_ctl(*epoll_fd, EPOLL_CTL_ADD, *socket_fd, &ev);
+    printf("socket_fd= %d\n", new_socket);
+    return new_socket;
 }
 
 #endif
