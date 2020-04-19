@@ -105,7 +105,7 @@ public:
         timers = new EventNode;
     }
     int LoadTimeEventMap(
-            std::function<void(TimeEvent *)> timeEventCallBack,
+            TimeEvent::TimeEventCallBack timeEventCallBack,
             TimeEvent::TimeEventDestroyCallBack timeEventDestroyCallBack,
             TimeEvemtType type,
             std::vector<pvoid> data,
