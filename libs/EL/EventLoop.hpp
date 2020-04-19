@@ -199,7 +199,7 @@ public:
         FD_ZERO(&fds._read_fd);
     }
 
-    void LoadEventMap(SOCKET fd, Event::CallBack call_back) {
+    void LoadEventMap(SOCKET fd, std::_Bind_helper<0, void (Service::*)(Event *), Service *, std::_Placeholder<1> &>::type call_back) {
 
         Event *accepter = &this->events[cut_index--];
 

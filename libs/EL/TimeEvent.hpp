@@ -104,11 +104,12 @@ public:
     TimeEventManeger(){
         timers = new EventNode;
     }
-    int LoadTimeEventMap(TimeEvent::TimeEventCallBack timeEventCallBack,
-                         TimeEvent::TimeEventDestroyCallBack timeEventDestroyCallBack,
-                          TimeEvemtType type,
-                          std::vector<pvoid> data,
-                          long long milliseconds
+    int LoadTimeEventMap(
+            std::_Bind_helper<0, void (Service::*)(TimeEvent *), Service *, std::_Placeholder<1> &>::type timeEventCallBack,
+            TimeEvent::TimeEventDestroyCallBack timeEventDestroyCallBack,
+            TimeEvemtType type,
+            std::vector<pvoid> data,
+            long long milliseconds
     ){
         long sec, ms;
         AddMillisecondsToNow(milliseconds, &sec, &ms);

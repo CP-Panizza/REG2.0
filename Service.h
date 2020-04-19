@@ -73,7 +73,6 @@ public:
 
     void ConfigAndRun(Config *);
 
-
     void removeServerInfoByIp(std::string ip);
 
     void slaveRun();
@@ -89,6 +88,8 @@ public:
     void OnServiceREG(EventManger *eventManger, std::vector<pvoid> args);
 
     void OnClientPULL(EventManger *eventManger, std::vector<pvoid> args);
+
+    void OnSlaveConnect(EventManger *eventManger, std::vector<pvoid> args);
 
     void SendData(EventManger *eventManger, std::vector<pvoid> args);
 #ifdef _WIN64
@@ -121,7 +122,6 @@ private:
     SOCKET master_fd;
 #else
     int socket_fd;
-    std::map<int, std::string> clients;
 #endif
 };
 

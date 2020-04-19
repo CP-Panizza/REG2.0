@@ -32,11 +32,9 @@ void Service::handle(Event *ev) {
         ev->buff[n] = '\0';
         printf("recv: %s\n", ev->buff + 4);
         int content_len = 0;
-
         if (n > 4) {
             content_len = byteCharToInt(ev->buff);
         }
-
         char *p = ev->buff + 4;
         if (static_cast<int>(strlen(p)) != content_len) {
             std::cout << "[ERROR]>> recv data length not match" << std::endl;
@@ -71,6 +69,13 @@ void Service::handle(Event *ev) {
                 && std::string(((*doc)["Type"]).GetString()) == "client"
                 ) {
             this->el->customEventManger->Emit("ClientPULL", {ev, doc});
+        } else if(
+                doc->HasMember("Type")
+                && std::string(((*doc)["Type"]).GetString()) == "slave"
+                && doc->HasMember("NodeName")
+                && this->config->node_type == NodeType::Master
+                ){
+            this->el->customEventManger->Emit("SlaveConnect", {ev, doc});
         }
 
     } else if ((n < 0) && (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)) {
@@ -147,6 +152,10 @@ void Service::ConfigAndRun(Config *_config) {
                 {},
                 this->config->heart_check_time * 1000
         );
+
+        this->el->customEventManger->On("SlaveConnect",
+                                        std::bind(&Service::OnSlaveConnect, this, std::placeholders::_1, std::placeholders::_2));
+
     } else if (this->config->node_type == NodeType::Slave) {
 //        if (this->config->master_ip.empty()) {
 //            std::cout << "[ERROR]>> node_type is Slave, must config master_ip" << std::endl;
@@ -155,6 +164,7 @@ void Service::ConfigAndRun(Config *_config) {
 //        std::thread t(&Service::slaveRun, this);
 //        t.detach();
     }
+
     this->el->LoadEventMap(this->socket_fd, std::bind(&Service::handle, this, std::placeholders::_1));
     this->el->customEventManger->On("ServiceREG", std::bind(&Service::OnServiceREG, this, std::placeholders::_1,
                                                             std::placeholders::_2));
@@ -162,6 +172,7 @@ void Service::ConfigAndRun(Config *_config) {
                                                             std::placeholders::_2));
     this->el->customEventManger->On("SendData",
                                     std::bind(&Service::SendData, this, std::placeholders::_1, std::placeholders::_2));
+
     this->el->Run();
 }
 
@@ -330,8 +341,8 @@ void Service::InitService() {
 
 
 void Service::OnServiceREG(EventManger *eventManger, std::vector<pvoid> args) {
-    Event *e = (Event *) args[0];
-    rapidjson::Document *doc = (rapidjson::Document *) args[1];
+    auto *e = (Event *) args[0];
+    auto *doc = (rapidjson::Document *) args[1];
     std::string port_str((*doc)["ServicePort"].GetString());
     std::string remoteIp = GetRemoTeIp(e->fd);
     remoteIp.append(port_str);
@@ -396,25 +407,20 @@ void Service::SendData(EventManger *eventManger, std::vector<pvoid> args) {
 }
 
 void Service::OnClientPULL(EventManger *eventManger, std::vector<pvoid> args) {
-    Event *e = (Event *) args[0];
-    rapidjson::Document *doc = (rapidjson::Document *) args[1];
-
+    auto *e = (Event *) args[0];
+    auto *doc = (rapidjson::Document *) args[1];
     rapidjson::StringBuffer s;
     rapidjson::Writer<rapidjson::StringBuffer> w(s);
-
     std::map<std::string, std::list<ServerInfo *> *> temp_map;
     auto serviceList = ((*doc)["ServiceList"]).GetArray();
-
     for (auto it = serviceList.Begin(); it != serviceList.End(); it++) {
         std::string ser_name(it->GetString());
-        lock.lockRead();
         if (server_list_map.count(ser_name)) {
             temp_map[ser_name] = server_list_map[ser_name];
         } else {
             std::list<ServerInfo *> tmep_list;
             temp_map[ser_name] = &tmep_list;
         }
-        lock.unlockRead();
     }
     w.StartObject();
     w.Key("data");
@@ -440,6 +446,14 @@ void Service::OnClientPULL(EventManger *eventManger, std::vector<pvoid> args) {
     e->len = s.GetLength();
     eventManger->Emit("SendData", {e});
     delete(doc);
+}
+
+
+void Service::OnSlaveConnect(EventManger *eventManger, std::vector<pvoid> args) {
+    auto *e = (Event *) args[0];
+    auto *doc = (rapidjson::Document *) args[1];
+    collect_slave(e->fd, GetRemoTeIp(e->fd), std::string((*doc)["NodeName"].GetString()));
+
 }
 
 
